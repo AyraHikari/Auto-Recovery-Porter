@@ -1,0 +1,88 @@
+#!/bin/bash
+
+POSITIONAL=()
+while [[ $# -gt 0 ]]
+do
+key="$1"
+
+show_usage ()
+{
+    echo "Usage:"
+    echo "-b --base    : Set base recovery.img, this for your device recovery"
+    echo "-t --target  : Set target recovery.img, target recovery you want port"
+    echo "-h --help    : To show this Help"
+    echo " "
+    echo "Example:"
+    echo "porter -b mydevice.img -t recovery.img"
+}
+
+
+case $key in
+    -b|--base)
+    BASE="$2"
+    shift # past argument
+    shift # past value
+    ;;
+    -t|--target)
+    TARGET="$2"
+    shift # past argument
+    shift # past value
+    ;;
+    -h|--help)
+    show_usage
+    exit 0
+    ;;
+esac
+done
+set -- "${POSITIONAL[@]}" # restore positional parameters
+
+
+if [[ "${BASE}" == "" ]]; then
+    echo "Invalid base args, see -h for get help"
+    exit 0
+fi
+
+if [[ "${TARGET}" == "" ]]; then
+    echo "Invalid target args, see -h for get help"
+    exit 0
+fi
+
+rm -rf base target
+
+mkdir base
+bin/unpackimg.sh $BASE
+sudo mv bin/ramdisk base
+sudo mv bin/split_img base
+bin/cleanup.sh
+
+mkdir target
+bin/unpackimg.sh $TARGET
+sudo mv bin/ramdisk target
+sudo mv bin/split_img target
+bin/cleanup.sh
+
+sudo rm -rf target/ramdisk/vendor
+sudo rm target/split_img/target.img-zImage
+
+sudo cp base/split_img/base.img-zImage target/split_img/target.img-zImage
+sudo cp -r base/ramdisk/vendor target/ramdisk/vendor
+
+sudo cp base/ramdisk/etc/recovery.fstab target/ramdisk/etc/recovery.fstab
+sudo cp base/ramdisk/etc/twrp.fstab target/ramdisk/etc/twrp.fstab
+
+sudo cp base/ramdisk/build.prop target/ramdisk/build.prop
+sudo cp base/ramdisk/default.prop target/ramdisk/default.prop
+sudo cp base/ramdisk/prop.default target/ramdisk/prop.default
+
+sudo rm -rf base
+sudo mv target/* bin/
+sudo rm -rf target
+
+bin/repackimg.sh
+mv bin/image-new.img ./PortedRecovery.img
+bin/cleanup.sh
+clear
+echo " "
+echo "Done!"
+echo "Check your new PortedRecovery.img in this dir"
+echo " "
